@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Monitoring Laboratorium PKS</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- html2canvas untuk Capture PNG -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            navy: { 50: '#f0f4f9', 800: '#1e3a8a', 900: '#0f172a' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    /* Kartu bergaya 3D: border tegas, sisi bawah tebal, bayangan berlapis */
+    .card-shadow {
+      border: 1px solid #94a3b8 !important;
+      border-top-color: #cbd5e1 !important;
+      border-bottom: 3px solid #64748b !important;
+      background-image: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+      box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.15),
+        0 4px 8px -2px rgba(15, 23, 42, 0.18),
+        0 10px 20px -6px rgba(30, 58, 138, 0.22);
+    }
+    
+    /* Animasi Pulse untuk Live Sync Indicator */
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.95); }
+    }
+    .animate-pulse-green {
+      animation: pulse-green 1.8s infinite ease-in-out;
+    }
+
+    /* Custom Scrollbar Styling */
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col justify-between">
+
+  <!-- Outer Wrap Main Data -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 w-full space-y-2.5">
+    
+    <!-- AREA YANG DI-CAPTURE SECARA PRESISI (Header + 4 Card KPI + 4 Grafik) -->
+    <div id="captureArea" class="bg-slate-50 p-2 rounded-xl space-y-2.5">
+      
+      <!-- Header -->
+      <header class="bg-gradient-to-r from-navy-900 via-navy-800 to-blue-900 text-white rounded-xl shadow-lg border-b-4 border-blue-600 relative overflow-visible">
+        <div class="px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="bg-blue-600/90 p-2 rounded-lg text-white shadow-inner flex items-center justify-center">
+              <i class="fa-solid fa-chart-line text-lg sm:text-xl"></i>
+            </div>
+            <div>
+              <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">Dashboard Monitoring QC Lab</h1>
+              <p class="text-[10px] sm:text-xs text-blue-200 mt-0.5">PT Borneo Indah Marjaya — Visualisasi & Analytics Quality Control</p>
+              <p class="text-[10px] sm:text-xs text-amber-300 font-semibold mt-0.5 flex items-center gap-1">
+                <i class="fa-regular fa-calendar-days"></i>
+                <span>Periode: <span id="headerPeriode">15 Data Terbaru</span></span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Live Sync Status & Download Dropdown -->
+          <div class="flex items-center space-x-2 relative">
+            
+            <!-- Badge Live Sync -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/60 border border-emerald-500/40 rounded-full backdrop-blur-sm text-[10px] font-semibold text-emerald-300">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-green shadow-[0_0_8px_#34d399]"></span>
+              <span>Live Sync</span>
+            </div>
+
+            <!-- Tombol Download (Ikon Kecil) -->
+            <div class="relative">
+              <button id="btnDownloadDropdown" class="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow transition flex items-center justify-center text-xs" title="Opsi Download">
+                <i class="fa-solid fa-download"></i>
+              </button>
+
+              <!-- Menu Dropdown Download -->
+              <div id="downloadMenu" class="hidden absolute right-0 mt-2 w-36 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 text-slate-700 text-xs">
+                <button id="btnDownloadPng" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center gap-2 transition">
+                  <i class="fa-regular fa-file-image text-blue-600"></i> Download .png
+                </button>
+                <button id="btnDownloadCsv" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center gap-2 transition">
+                  <i class="fa-solid fa-file-csv text-emerald-600"></i> Download .csv
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </header>
+
+      <!-- Filter Periode Tanggal -->
+      <div id="filterBar" class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 card-shadow">
+        <form id="filterForm" class="flex flex-wrap items-center gap-2 text-[11px]">
+          <span class="font-bold text-slate-700 flex items-center gap-1 mr-1 text-xs">
+            <i class="fa-solid fa-filter text-blue-600"></i> Filter Periode:
+          </span>
+          <div class="flex items-center gap-1">
+            <label class="font-semibold text-slate-500">Dari</label>
+            <input type="date" id="startDate" class="px-1.5 py-0.5 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 bg-slate-50 text-[11px]">
+          </div>
+          <div class="flex items-center gap-1">
+            <label class="font-semibold text-slate-500">Sampai</label>
+            <input type="date" id="endDate" class="px-1.5 py-0.5 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 bg-slate-50 text-[11px]">
+          </div>
+          <div class="flex gap-1 ml-auto">
+            <button type="button" id="btnResetFilter" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded border border-slate-300 transition flex items-center gap-1 text-[10px]">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Section 1: Top KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+        
+        <!-- Card FFA CPO -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">FFA CPO</span>
+            <div class="w-5 h-5 rounded bg-amber-100 text-amber-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-flask"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiFfa" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span id="kpiFfaStatus" class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">Memuat...</span>
+          </div>
+        </div>
+
+        <!-- Card USB -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">USB</span>
+            <div class="w-5 h-5 rounded bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-box-open"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiUsb" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span id="kpiUsbStatus" class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">Memuat...</span>
+          </div>
+        </div>
+
+        <!-- Card Total Abs Oil Losses -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Abs Oil Loss</span>
+            <div class="w-5 h-5 rounded bg-red-100 text-red-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-droplet"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiOilLosses" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span id="kpiOilLossesStatus" class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">Total Abs</span>
+          </div>
+        </div>
+
+        <!-- Card Total Abs Kernel Losses -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Abs Kernel Loss</span>
+            <div class="w-5 h-5 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-wheat-awn"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiKernelLosses" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span id="kpiKernelLossesStatus" class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">Total Abs</span>
+          </div>
+        </div>
+
+        <!-- Card Efisiensi Ripplemill No.1 -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Eff. Ripplemill 1</span>
+            <div class="w-5 h-5 rounded bg-teal-100 text-teal-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-gears"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiRipple1" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">No.1</span>
+          </div>
+        </div>
+
+        <!-- Card Efisiensi Ripplemill No.2 -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Eff. Ripplemill 2</span>
+            <div class="w-5 h-5 rounded bg-teal-100 text-teal-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-gears"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiRipple2" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">No.2</span>
+          </div>
+        </div>
+
+        <!-- Card Efisiensi Ripplemill No.3 -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Eff. Ripplemill 3</span>
+            <div class="w-5 h-5 rounded bg-teal-100 text-teal-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-gears"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiRipple3" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">No.3</span>
+          </div>
+        </div>
+
+        <!-- Card Efisiensi Ripplemill No.4 -->
+        <div class="bg-white px-2 py-1.5 rounded-md border border-slate-200 card-shadow min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-[8px] font-bold uppercase text-slate-500 tracking-wide truncate">Eff. Ripplemill 4</span>
+            <div class="w-5 h-5 rounded bg-teal-100 text-teal-600 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-gears"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between mt-0.5">
+            <div class="flex items-baseline gap-0.5">
+              <span id="kpiRipple4" class="text-base font-extrabold text-slate-800 leading-none">-</span>
+              <span class="text-[9px] text-slate-500">%</span>
+            </div>
+            <span class="text-[9px] font-medium text-slate-500 truncate max-w-[60px]">No.4</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section 2: Interactive Visual Charts (4 Kotak Grafik) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+        
+        <!-- Kategori 1: Oil Losses -->
+        <div class="bg-white p-3.5 rounded-lg border border-slate-200 card-shadow">
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800">1. Tren Oil Losses</h3>
+              <p id="oilChartSubtitle" class="text-[10px] text-slate-500">ODB Press, OWB Separator, USB, Oil Empty Bunch, & Oil Wet Nut (%)</p>
+            </div>
+            <i class="fa-solid fa-droplet text-amber-500 text-xs"></i>
+          </div>
+          <div id="oilChips" class="chart-chips flex flex-wrap gap-1 mb-1.5"></div>
+          <div class="relative h-52">
+            <canvas id="chartOilLosses"></canvas>
+          </div>
+        </div>
+
+        <!-- Kategori 2: Kernel Losses -->
+        <div class="bg-white p-3.5 rounded-lg border border-slate-200 card-shadow">
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800">2. Tren Kernel Losses</h3>
+              <p id="kernelChartSubtitle" class="text-[10px] text-slate-500">Fiber Cyclon, LTDS 1 & 2, Shell HDC, & Destoner Losses (%)</p>
+            </div>
+            <i class="fa-solid fa-wheat-awn text-purple-500 text-xs"></i>
+          </div>
+          <div id="kernelChips" class="chart-chips flex flex-wrap gap-1 mb-1.5"></div>
+          <div class="relative h-52">
+            <canvas id="chartKernelLosses"></canvas>
+          </div>
+        </div>
+
+        <!-- Kategori 3: Kualitas CPO -->
+        <div class="bg-white p-3.5 rounded-lg border border-slate-200 card-shadow">
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800">3. Tren Kualitas CPO</h3>
+              <p id="cpoChartSubtitle" class="text-[10px] text-slate-500">FFA (%), Moisture (%), Dirt (%), & DOBI Index</p>
+            </div>
+            <i class="fa-solid fa-vial text-emerald-500 text-xs"></i>
+          </div>
+          <div id="cpoChips" class="chart-chips flex flex-wrap gap-1 mb-1.5"></div>
+          <div class="relative h-52">
+            <canvas id="chartKualitasCpo"></canvas>
+          </div>
+        </div>
+
+        <!-- Kategori 4: Kualitas Kernel -->
+        <div class="bg-white p-3.5 rounded-lg border border-slate-200 card-shadow">
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800">4. Tren Kualitas Kernel</h3>
+              <p id="kqChartSubtitle" class="text-[10px] text-slate-500">Moisture, Dirt Produksi, & Kernel Pecah (%)</p>
+            </div>
+            <i class="fa-solid fa-boxes-stacked text-blue-500 text-xs"></i>
+          </div>
+          <div id="kqChips" class="chart-chips flex flex-wrap gap-1 mb-1.5"></div>
+          <div class="relative h-52">
+            <canvas id="chartKualitasKernel"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Non-Capturable Area (Filter Tanggal & Tabel Riwayat Lengkap) -->
+    <main class="space-y-2.5 pt-1">
+
+      <!-- Section 3: Data Table History (Wide Table dengan Scroll Kiri & Kanan) -->
+      <div class="bg-white rounded-lg border border-slate-200 card-shadow overflow-hidden">
+        
+        <!-- Header Tabel & Tombol Navigasi Scroll -->
+        <div class="bg-slate-900 px-3.5 py-2 text-white flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list text-blue-400"></i>
+              Riwayat Transaksi Analisa Laboratorium
+            </h3>
+            <span id="totalDataCount" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-300">0 Data Ditampilkan</span>
+          </div>
+
+          <!-- Control Navigasi Scroll -->
+          <div class="flex items-center gap-2 text-[10px]">
+            <span class="text-slate-400 hidden sm:inline"><i class="fa-solid fa-arrows-left-right mr-1"></i>Geser Horisontal</span>
+            <div class="flex gap-1">
+              <button id="btnScrollLeft" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-slate-200 rounded border border-slate-700 transition flex items-center gap-1" title="Geser ke Kiri">
+                <i class="fa-solid fa-chevron-left text-[10px]"></i> Kiri
+              </button>
+              <button id="btnScrollRight" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-slate-200 rounded border border-slate-700 transition flex items-center gap-1" title="Geser ke Kanan">
+                Kanan <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Container Scrollable Tabel -->
+        <div id="tableScrollContainer" class="overflow-x-auto custom-scrollbar max-h-[500px]">
+          <table class="w-full text-left border-collapse text-[11px] whitespace-nowrap min-w-[5200px]">
+            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+              <tr id="tableHeadRow" class="text-slate-700 font-semibold border-b border-slate-300 text-[10px] uppercase tracking-wider"></tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-slate-200 text-slate-600">
+              <tr>
+                <td colspan="54" class="text-center py-6 text-slate-400">Memuat riwayat data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-navy-900 text-slate-400 py-3 border-t border-slate-800 mt-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div class="flex items-center space-x-2 text-[11px]">
+        <span>&copy; 2026 Dashboard Analytics PKS</span>
+        <span>&bull;</span>
+        <span class="text-slate-300">Versi 2.6.2 Supriyanto</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Firebase V9 Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Config Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBDrq_XZxsOHjV15MN5OgVbj6tlDwS2rE0",
+      authDomain: "quality-bim.firebaseapp.com",
+      projectId: "quality-bim",
+      storageBucket: "quality-bim.firebasestorage.app",
+      messagingSenderId: "612338498991",
+      appId: "1:612338498991:web:8c372442ae51ebb6ec435a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let chartOilLosses, chartKernelLosses, chartKualitasCpo, chartKualitasKernel;
+    let unsubscribeListener = null;
+    let currentRawData = [];
+
+    // Inisialisasi Chart.js
+    function initCharts() {
+      const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { boxWidth: 8, font: { size: 9 }, padding: 6 }
+          }
+        }
+      };
+
+      const ctxOil = document.getElementById('chartOilLosses').getContext('2d');
+      chartOilLosses = new Chart(ctxOil, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'ODB Press (%)', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b10', tension: 0.3 },
+            { label: 'OWB Separator (%)', data: [], borderColor: '#3b82f6', tension: 0.3 },
+            { label: 'USB (%)', data: [], borderColor: '#ef4444', tension: 0.3 },
+            { label: 'Oil Empty Bunch (%)', data: [], borderColor: '#10b981', tension: 0.3 },
+            { label: 'Oil Wet Nut (%)', data: [], borderColor: '#8b5cf6', tension: 0.3 }
+          ]
+        },
+        options: commonOptions
+      });
+
+      const ctxKernelLosses = document.getElementById('chartKernelLosses').getContext('2d');
+      chartKernelLosses = new Chart(ctxKernelLosses, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Fiber Cyclon (%)', data: [], borderColor: '#64748b', tension: 0.3 },
+            { label: 'LTDS 1 Losses (%)', data: [], borderColor: '#3b82f6', tension: 0.3 },
+            { label: 'LTDS 2 Losses (%)', data: [], borderColor: '#8b5cf6', tension: 0.3 },
+            { label: 'Shell HDC Losses (%)', data: [], borderColor: '#f59e0b', tension: 0.3 },
+            { label: 'Destoner Losses (%)', data: [], borderColor: '#ef4444', tension: 0.3 }
+          ]
+        },
+        options: commonOptions
+      });
+
+      const ctxCpo = document.getElementById('chartKualitasCpo').getContext('2d');
+      chartKualitasCpo = new Chart(ctxCpo, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'FFA CPO (%)', data: [], borderColor: '#ef4444', backgroundColor: '#ef444415', tension: 0.3, fill: true },
+            { label: 'Moisture CPO (%)', data: [], borderColor: '#06b6d4', tension: 0.3 },
+            { label: 'Dirt CPO (%)', data: [], borderColor: '#64748b', tension: 0.3 },
+            { label: 'DOBI CPO', data: [], borderColor: '#10b981', yAxisID: 'y1', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 8, font: { size: 9 }, padding: 6 } } },
+          scales: {
+            y: { position: 'left', title: { display: true, text: '%' } },
+            y1: { position: 'right', title: { display: true, text: 'Index' }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+
+      const ctxKernel = document.getElementById('chartKualitasKernel').getContext('2d');
+      chartKualitasKernel = new Chart(ctxKernel, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Moisture Kernel (%)', data: [], borderColor: '#0284c7', tension: 0.3 },
+            { label: 'Dirt Kernel Produksi (%)', data: [], borderColor: '#eab308', tension: 0.3 },
+            { label: 'Kernel Pecah (%)', data: [], borderColor: '#ec4899', tension: 0.3 }
+          ]
+        },
+        options: commonOptions
+      });
+    }
+
+    // Ambil efisiensi Ripple Mill No.n dari nutAndKernelStation.effRippleMill (array, indeks 0-3)
+    function getRipple(doc, n) {
+      const arr = doc.nutAndKernelStation?.effRippleMill;
+      const v = Array.isArray(arr) ? arr[n - 1] : undefined;
+      return (v === undefined || v === null || v === '') ? '-' : v;
+    }
+
+    // Helper Pemformat Tampilan Nilai
+    function fmtVal(val) {
+      return (val !== undefined && val !== null && val !== '') ? val : '-';
+    }
+
+    // Tampilkan periode filter pada header
+    function updatePeriodeLabel(startDate, endDate) {
+      const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      let text;
+      if (startDate && endDate) text = (startDate === endDate) ? fmt(startDate) : `${fmt(startDate)} s.d. ${fmt(endDate)}`;
+      else if (startDate) text = `Sejak ${fmt(startDate)}`;
+      else if (endDate) text = `Sampai ${fmt(endDate)}`;
+      else text = '15 Data Terbaru';
+      document.getElementById('headerPeriode').innerText = text;
+    }
+
+    // ===== Adaptor data: menyesuaikan struktur dokumen dari form input ke yang dibaca dashboard =====
+    const pad2 = n => String(n).padStart(2, '0');
+
+    function toDateObj(v) {
+      if (!v) return null;
+      if (typeof v.toDate === 'function') return v.toDate();   // Firestore Timestamp
+      const d = new Date(v);                                    // string ISO / angka
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function normalizeDoc(raw) {
+      const doc = { ...raw };
+      const psRaw = raw.processAndSludge || {};
+      const dop = raw.dataOilAndPress || {};
+      const ps = { ...psRaw };
+      const nk = { ...(raw.nutAndKernelStation || {}) };
+
+      // --- Tanggal: utamakan tanggalLaporan (YYYY-MM-DD), jam dari timestamp ---
+      const ts = toDateObj(raw.timestamp) || toDateObj(raw.createdAt);
+      const tgl = /^\d{4}-\d{2}-\d{2}$/.test(raw.tanggalLaporan || '')
+        ? raw.tanggalLaporan
+        : (ts ? `${ts.getFullYear()}-${pad2(ts.getMonth() + 1)}-${pad2(ts.getDate())}` : '');
+
+      if (tgl) {
+        const [y, m, d] = tgl.split('-');
+        doc.createdAtFormatted = `${d}/${m}/${y}` + (ts ? ` ${pad2(ts.getHours())}:${pad2(ts.getMinutes())}` : '');
+        doc._label = `${d}/${m}/${y.slice(2)}`;
+        doc._time = ts ? `${pad2(ts.getHours())}:${pad2(ts.getMinutes())}` : '';
+        doc._sortKey = new Date(tgl + 'T00:00:00').getTime() +
+          (ts ? (ts.getHours() * 3600 + ts.getMinutes() * 60 + ts.getSeconds()) * 1000 : 0);
+      } else {
+        doc.createdAtFormatted = raw.createdAtFormatted || raw.formattedDate || '-';
+        doc._label = doc.createdAtFormatted;
+        doc._time = '';
+        doc._sortKey = 0;
+      }
+      doc._tgl = tgl;
+      doc._raw = raw;   // data asli sesuai isian form (dipakai tabel riwayat)
+
+      // --- USB: form input menyimpan di dataOilAndPress.usb ---
+      ps.usbLosses = psRaw.usbLosses ?? dop.usb ?? raw.sterilizerStation?.usb;
+
+      // --- OWB Separator: form input menyimpan array + rata-rata; dashboard butuh satu angka ---
+      if (Array.isArray(psRaw.owbSeparator)) {
+        let avg = psRaw.rataRataOwbSeparator;
+        if (avg === undefined || avg === null) {
+          const vals = psRaw.owbSeparator.map(parseFloat).filter(v => !isNaN(v) && v > 0);
+          avg = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : undefined;
+        }
+        ps.owbSeparator = avg;
+      } else if (psRaw.owbSeparator === undefined) {
+        ps.owbSeparator = psRaw.rataRataOwbSeparator;
+      }
+
+      // --- Oil Empty Bunch = Oil Tankos (tandan kosong) ---
+      ps.oilEmptyBunch = psRaw.oilEmptyBunch ?? dop.oilTankos;
+
+      // --- Oil Wet Nut: di form input berada di Process & Sludge ---
+      nk.oilWetNut = nk.oilWetNut ?? psRaw.oilWetNut;
+
+      doc.processAndSludge = ps;
+      doc.nutAndKernelStation = nk;
+      return doc;
+    }
+
+    // ===== Definisi kolom Riwayat Transaksi (urutan & seksi sama seperti form input) =====
+    const GROUP_STYLE = {
+      oil:  { th: 'bg-emerald-50/80 text-emerald-900', td: 'bg-emerald-50/20' },
+      proc: { th: 'bg-blue-50/80 text-blue-900',       td: 'bg-blue-50/20' },
+      cpo:  { th: 'bg-amber-50/80 text-amber-900',     td: 'bg-amber-50/20' },
+      nk:   { th: 'bg-purple-50/80 text-purple-900',   td: 'bg-purple-50/20' },
+      tot:  { th: 'bg-rose-100 text-rose-950 font-bold', td: 'bg-red-50/40 font-extrabold text-slate-900' }
+    };
+    const arrAt = (arr, i) => Array.isArray(arr) ? arr[i] : undefined;
+    const COLUMNS = [];
+    const addCol = (g, h, fn, bold = false) => COLUMNS.push({ g, h, fn, bold });
+    const addSeries = (g, prefix, n, fn) => { for (let i = 0; i < n; i++) addCol(g, `${prefix} ${i + 1} (%)`, r => fn(r, i)); };
+
+    // 1. Data Oil & Press
+    addCol('oil', 'Oil Tankos (%)', r => r.dataOilAndPress?.oilTankos);
+    addCol('oil', 'USB (%)', r => r.dataOilAndPress?.usb ?? r.processAndSludge?.usbLosses ?? r.sterilizerStation?.usb, true);
+    addSeries('oil', 'ODB Press', 5, (r, i) => arrAt(r.dataOilAndPress?.odbPress, i));
+    addCol('oil', 'ODB Rata-rata (%)', r => r.dataOilAndPress?.odbRataRata, true);
+    addSeries('oil', 'OWB Press', 5, (r, i) => arrAt(r.dataOilAndPress?.owbPress, i));
+    addCol('oil', 'OWB Rata-rata (%)', r => r.dataOilAndPress?.owbRataRata, true);
+    // 2. Process & Sludge
+    addCol('proc', 'Oil Wet Nut (%)', r => r.processAndSludge?.oilWetNut ?? r.nutAndKernelStation?.oilWetNut);
+    addCol('proc', 'OWB Condensate (%)', r => r.processAndSludge?.owbCondensate);
+    addCol('proc', 'ODB Condensate (%)', r => r.processAndSludge?.odbCondensate);
+    addCol('proc', 'Under Flow Moisture (%)', r => r.processAndSludge?.underFlowMoisture);
+    addCol('proc', 'Underflow OWB (%)', r => r.processAndSludge?.underflowOwb);
+    addSeries('proc', 'OWB Separator', 6, (r, i) => arrAt(r.processAndSludge?.owbSeparator, i));
+    addCol('proc', 'Rata-rata OWB Separator (%)', r => r.processAndSludge?.rataRataOwbSeparator, true);
+    addCol('proc', 'OWB Sludge Pit (%)', r => r.processAndSludge?.owbSludgePit);
+    addCol('proc', 'ODB Sludge Pit (%)', r => r.processAndSludge?.odbSludgePit);
+    // 3. Mutu CPO Produksi
+    addCol('cpo', 'FFA CPO (%)', r => r.mutuCpoProduksi?.ffa, true);
+    addCol('cpo', 'Moisture CPO (%)', r => r.mutuCpoProduksi?.moisture);
+    addCol('cpo', 'Dirt CPO (%)', r => r.mutuCpoProduksi?.dirt);
+    addCol('cpo', 'DOBI CPO', r => r.mutuCpoProduksi?.dobi);
+    addCol('cpo', 'Carotin CPO (ppm)', r => r.mutuCpoProduksi?.carotin);
+    // 4. Nut & Kernel Station
+    addSeries('nk', 'Efisiensi Ripple Mill', 5, (r, i) => arrAt(r.nutAndKernelStation?.effRippleMill, i));
+    [['Broken Kernel (%)', 'brokenKernel'], ['Fiber Cyclon Losses (%)', 'fiberCyclonLosses'],
+     ['LTDS 1 Losses (%)', 'ltds1Losses'], ['LTDS 2 Losses (%)', 'ltds2Losses'],
+     ['Destoner Losses (%)', 'destonerLosses'], ['Shell HDC Losses (%)', 'shellHdcLosses'],
+     ['Dirt Kernel LTDS 1 (%)', 'dirtKernelLtds1'], ['Dirt Kernel LTDS 2 (%)', 'dirtKernelLtds2'],
+     ['Dirt HDC (%)', 'dirtHdc'], ['Dirt Gabungan (%)', 'dirtGabungan'],
+     ['Dirt Kernel Produksi (%)', 'dirtKernelProduksi'], ['Moisture Kernel Produksi (%)', 'moistureKernelProduksi'],
+     ['Kernel Pecah (%)', 'kernelPecah']
+    ].forEach(([h, k]) => addCol('nk', h, r => r.nutAndKernelStation?.[k]));
+    // 5. Total Losses
+    addCol('tot', 'Abs Oil Losses (%)', r => r.totalLosses?.absOilLosses);
+    addCol('tot', 'Abs Kernel Losses (%)', r => r.totalLosses?.absKernelLosses);
+
+    // Border pemisah tebal di kolom terakhir tiap seksi
+    const isGroupEnd = i => i === COLUMNS.length - 1 || COLUMNS[i + 1].g !== COLUMNS[i].g;
+
+    function buildTableHeader() {
+      let h = `<th class="py-2.5 px-3 bg-slate-200 border-r border-slate-300 font-bold text-slate-800">Tanggal Laporan</th>`;
+      COLUMNS.forEach((c, i) => {
+        h += `<th class="py-2.5 px-3 ${GROUP_STYLE[c.g].th} border-r ${isGroupEnd(i) ? 'border-slate-300' : 'border-slate-200'}${c.bold ? ' font-bold' : ''}">${c.h}</th>`;
+      });
+      document.getElementById('tableHeadRow').innerHTML = h;
+    }
+
+    function buildTableRow(item) {
+      const r = item._raw || item;
+      let row = `<tr class="hover:bg-slate-50 transition border-b border-slate-100"><td class="py-2 px-3 font-semibold text-slate-800 border-r border-slate-200">${item.createdAtFormatted || '-'}</td>`;
+      COLUMNS.forEach((c, i) => {
+        row += `<td class="py-2 px-3 ${GROUP_STYLE[c.g].td} border-r ${isGroupEnd(i) ? 'border-slate-200' : 'border-slate-100'}${c.bold ? ' font-bold text-slate-800' : ''}">${fmtVal(c.fn(r))}</td>`;
+      });
+      return row + '</tr>';
+    }
+
+    // ===== Mesin filter grafik interaktif (dipakai keempat grafik tren) =====
+    // View: { key, chip, build(docs) -> { type: 'line'|'bar', subtitle, series: [{label,color,get,fill?,axis?}] } }
+    const NO_COLORS = ['#f59e0b', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];
+    const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+    const HINT = ' — klik tombol untuk detail';
+
+    // Grafik garis satu parameter
+    const singleView = (key, chip, label, color, get) => ({
+      key, chip,
+      build: () => ({ type: 'line', subtitle: `${label} (%)`, series: [{ label: label + ' (%)', color, get, fill: true }] })
+    });
+    // Grafik batang perbandingan beberapa parameter
+    const barsView = (key, chip, subtitle, series) => ({
+      key, chip, build: () => ({ type: 'bar', subtitle, series })
+    });
+    // Grafik batang per nomor unit (jumlah batang mengikuti panjang array di data)
+    const perUnitView = (key, chip, name, color, detail, avg) => ({
+      key, chip,
+      build: docs => {
+        const n = Math.min(8, Math.max(0, ...docs.map(d => { const a = detail(d); return Array.isArray(a) ? a.length : 0; })));
+        if (n === 0) return { type: 'line', subtitle: `${name} (%)`, series: [{ label: name + ' (%)', color, get: avg, fill: true }] };
+        return {
+          type: 'bar',
+          subtitle: `${name} No.1 sd No.${n} per laporan (%)`,
+          series: Array.from({ length: n }, (_, i) => ({
+            label: `${name} ${i + 1}`, color: NO_COLORS[i % NO_COLORS.length],
+            get: d => { const a = detail(d); return Array.isArray(a) ? a[i] : null; }
+          }))
+        };
+      }
+    });
+
+    const nk = d => d.nutAndKernelStation || {};
+    const cpo = d => d.mutuCpoProduksi || {};
+
+    const OIL_GET = {
+      odb: d => d.dataOilAndPress?.odbRataRata,
+      owb: d => d.processAndSludge?.owbSeparator ?? d.processAndSludge?.owbSludgePit,
+      usb: d => d.processAndSludge?.usbLosses ?? d.sterilizerStation?.usb,
+      oeb: d => d.processAndSludge?.oilEmptyBunch,
+      wet: d => d.nutAndKernelStation?.oilWetNut
+    };
+
+    const FCHARTS = {
+      oil: {
+        canvas: 'chartOilLosses', subtitle: 'oilChartSubtitle', chips: 'oilChips',
+        setChart: c => { chartOilLosses = c; },
+        views: [
+          { key: 'all', chip: 'Semua', build: () => ({ type: 'line', subtitle: 'ODB Press, OWB Separator, USB, Oil Empty Bunch, & Oil Wet Nut (%)' + HINT, series: [
+              { label: 'ODB Press (%)', color: '#f59e0b', get: OIL_GET.odb },
+              { label: 'OWB Separator (%)', color: '#3b82f6', get: OIL_GET.owb },
+              { label: 'USB (%)', color: '#ef4444', get: OIL_GET.usb },
+              { label: 'Oil Empty Bunch (%)', color: '#10b981', get: OIL_GET.oeb },
+              { label: 'Oil Wet Nut (%)', color: '#8b5cf6', get: OIL_GET.wet } ] }) },
+          perUnitView('odb', 'ODB Press', 'ODB Press', '#f59e0b', d => d._raw?.dataOilAndPress?.odbPress ?? d.dataOilAndPress?.odbPress, OIL_GET.odb),
+          perUnitView('owb', 'OWB Separator', 'OWB Separator', '#3b82f6', d => d._raw?.processAndSludge?.owbSeparator, OIL_GET.owb),
+          singleView('usb', 'USB', 'USB', '#ef4444', OIL_GET.usb),
+          singleView('oeb', 'Oil Empty Bunch', 'Oil Empty Bunch', '#10b981', OIL_GET.oeb),
+          singleView('wet', 'Oil Wet Nut', 'Oil Wet Nut', '#8b5cf6', OIL_GET.wet)
+        ]
+      },
+      kernel: {
+        canvas: 'chartKernelLosses', subtitle: 'kernelChartSubtitle', chips: 'kernelChips',
+        setChart: c => { chartKernelLosses = c; },
+        views: [
+          { key: 'all', chip: 'Semua', build: () => ({ type: 'line', subtitle: 'Fiber Cyclon, LTDS 1 & 2, Shell HDC, & Destoner Losses (%)' + HINT, series: [
+              { label: 'Fiber Cyclon (%)', color: '#64748b', get: d => nk(d).fiberCyclonLosses },
+              { label: 'LTDS 1 Losses (%)', color: '#3b82f6', get: d => nk(d).ltds1Losses },
+              { label: 'LTDS 2 Losses (%)', color: '#8b5cf6', get: d => nk(d).ltds2Losses },
+              { label: 'Shell HDC Losses (%)', color: '#f59e0b', get: d => nk(d).shellHdcLosses },
+              { label: 'Destoner Losses (%)', color: '#ef4444', get: d => nk(d).destonerLosses } ] }) },
+          singleView('fiber', 'Fiber Cyclon', 'Fiber Cyclon', '#64748b', d => nk(d).fiberCyclonLosses),
+          barsView('ltds', 'LTDS 1 & 2', 'Perbandingan LTDS 1 vs LTDS 2 Losses (%)', [
+            { label: 'LTDS 1 Losses (%)', color: '#3b82f6', get: d => nk(d).ltds1Losses },
+            { label: 'LTDS 2 Losses (%)', color: '#8b5cf6', get: d => nk(d).ltds2Losses } ]),
+          singleView('hdc', 'Shell HDC', 'Shell HDC Losses', '#f59e0b', d => nk(d).shellHdcLosses),
+          singleView('destoner', 'Destoner', 'Destoner Losses', '#ef4444', d => nk(d).destonerLosses)
+        ]
+      },
+      cpo: {
+        canvas: 'chartKualitasCpo', subtitle: 'cpoChartSubtitle', chips: 'cpoChips',
+        setChart: c => { chartKualitasCpo = c; },
+        views: [
+          { key: 'all', chip: 'Semua', build: () => ({ type: 'line', subtitle: 'FFA (%), Moisture (%), Dirt (%), & DOBI Index' + HINT, series: [
+              { label: 'FFA CPO (%)', color: '#ef4444', get: d => cpo(d).ffa, fill: true },
+              { label: 'Moisture CPO (%)', color: '#06b6d4', get: d => cpo(d).moisture },
+              { label: 'Dirt CPO (%)', color: '#64748b', get: d => cpo(d).dirt },
+              { label: 'DOBI CPO', color: '#10b981', get: d => cpo(d).dobi, axis: 'y1' } ] }) },
+          singleView('ffa', 'FFA', 'FFA CPO', '#ef4444', d => cpo(d).ffa),
+          singleView('moist', 'Moisture', 'Moisture CPO', '#06b6d4', d => cpo(d).moisture),
+          singleView('dirt', 'Dirt', 'Dirt CPO', '#64748b', d => cpo(d).dirt),
+          { key: 'dobi', chip: 'DOBI', build: () => ({ type: 'line', subtitle: 'DOBI CPO (Index)', series: [
+              { label: 'DOBI CPO', color: '#10b981', get: d => cpo(d).dobi, fill: true } ] }) }
+        ]
+      },
+      kq: {
+        canvas: 'chartKualitasKernel', subtitle: 'kqChartSubtitle', chips: 'kqChips',
+        setChart: c => { chartKualitasKernel = c; },
+        views: [
+          { key: 'all', chip: 'Semua', build: () => ({ type: 'line', subtitle: 'Moisture, Dirt Produksi, & Kernel Pecah (%)' + HINT, series: [
+              { label: 'Moisture Kernel (%)', color: '#0284c7', get: d => nk(d).moistureKernelProduksi },
+              { label: 'Dirt Kernel Produksi (%)', color: '#eab308', get: d => nk(d).dirtKernelProduksi },
+              { label: 'Kernel Pecah (%)', color: '#ec4899', get: d => nk(d).kernelPecah } ] }) },
+          singleView('moist', 'Moisture', 'Moisture Kernel', '#0284c7', d => nk(d).moistureKernelProduksi),
+          singleView('dirtprod', 'Dirt Produksi', 'Dirt Kernel Produksi', '#eab308', d => nk(d).dirtKernelProduksi),
+          singleView('pecah', 'Kernel Pecah', 'Kernel Pecah', '#ec4899', d => nk(d).kernelPecah),
+          barsView('dirtunit', 'Dirt per Unit', 'Perbandingan Dirt Kernel per unit (%)', [
+            { label: 'Dirt LTDS 1', color: '#3b82f6', get: d => nk(d).dirtKernelLtds1 },
+            { label: 'Dirt LTDS 2', color: '#8b5cf6', get: d => nk(d).dirtKernelLtds2 },
+            { label: 'Dirt HDC', color: '#f59e0b', get: d => nk(d).dirtHdc },
+            { label: 'Dirt Gabungan', color: '#10b981', get: d => nk(d).dirtGabungan },
+            { label: 'Dirt Produksi', color: '#eab308', get: d => nk(d).dirtKernelProduksi } ])
+        ]
+      }
+    };
+    Object.values(FCHARTS).forEach(c => { c.view = 'all'; c.chart = null; c.cache = { labels: [], docs: [] }; });
+
+    function renderFilterChart(cfg) {
+      const { labels, docs } = cfg.cache;
+      const view = cfg.views.find(v => v.key === cfg.view) || cfg.views[0];
+      const spec = view.build(docs);
+      const isBar = spec.type === 'bar';
+      const dual = spec.series.some(s => s.axis === 'y1');
+
+      const datasets = spec.series.map(s => {
+        const data = docs.map(d => { const n = toNum(s.get(d)); return n === null && !isBar ? 0 : n; });
+        return isBar
+          ? { label: s.label, data, backgroundColor: s.color, borderRadius: 2 }
+          : { label: s.label, data, borderColor: s.color, backgroundColor: s.color + (s.fill ? '20' : '10'),
+              tension: 0.3, fill: !!s.fill, ...(s.axis ? { yAxisID: s.axis } : {}) };
+      });
+
+      let scales = {};
+      if (isBar) scales = { y: { beginAtZero: true } };
+      else if (dual) scales = {
+        y: { position: 'left', title: { display: true, text: '%' } },
+        y1: { position: 'right', title: { display: true, text: 'Index' }, grid: { drawOnChartArea: false } }
+      };
+
+      const canvasEl = document.getElementById(cfg.canvas);
+      const existing = (typeof Chart.getChart === 'function') ? Chart.getChart(canvasEl) : null;
+      if (existing) existing.destroy();
+      if (cfg.chart && cfg.chart !== existing) cfg.chart.destroy();
+      cfg.chart = new Chart(canvasEl.getContext('2d'), {
+        type: spec.type,
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'top', labels: { boxWidth: 8, font: { size: 9 }, padding: 6 } } },
+          scales
+        }
+      });
+      cfg.setChart(cfg.chart);
+
+      document.getElementById(cfg.subtitle).innerText = spec.subtitle;
+      document.querySelectorAll(`#${cfg.chips} .fchip`).forEach(btn => {
+        const active = btn.dataset.view === view.key;
+        btn.classList.toggle('bg-blue-600', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('border-blue-600', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-slate-600', !active);
+        btn.classList.toggle('border-slate-300', !active);
+      });
+    }
+
+    function initFilterChart(cfg) {
+      const box = document.getElementById(cfg.chips);
+      box.innerHTML = cfg.views.map(v =>
+        `<button type="button" data-view="${v.key}" class="fchip px-2 py-0.5 rounded-full border text-[10px] font-semibold transition">${v.chip}</button>`
+      ).join('');
+      box.querySelectorAll('.fchip').forEach(btn => {
+        btn.addEventListener('click', () => { cfg.view = btn.dataset.view; renderFilterChart(cfg); });
+      });
+      renderFilterChart(cfg);
+    }
+
+    // Load Data Real-time dari Firestore
+    function listenToData(startDate = null, endDate = null) {
+      updatePeriodeLabel(startDate, endDate);
+      if (unsubscribeListener) {
+        unsubscribeListener();
+      }
+
+      // Ambil koleksi, lalu normalisasi + filter + urut di sisi klien.
+      // (Field 'timestamp' dari form input berupa string ISO & berzona UTC, sehingga tidak bisa
+      //  dibandingkan langsung dengan Firestore Timestamp; filter memakai 'tanggalLaporan'.)
+      unsubscribeListener = db.collection('laporan_laboratorium').onSnapshot(snapshot => {
+        let docs = snapshot.docs.map(doc => normalizeDoc(doc.data()));
+        docs = docs.filter(d => (!startDate || d._tgl >= startDate) && (!endDate || d._tgl <= endDate));
+        docs.sort((x, y) => y._sortKey - x._sortKey);
+        if (!startDate && !endDate) docs = docs.slice(0, 15);
+        currentRawData = docs;
+
+        if (docs.length === 0) {
+          document.getElementById('tableBody').innerHTML = `<tr><td colspan="${COLUMNS.length + 1}" class="text-center py-6 text-slate-400">Tidak ada data untuk periode ini.</td></tr>`;
+          document.getElementById('totalDataCount').innerText = `0 Data Ditampilkan`;
+          Object.values(FCHARTS).forEach(cfg => { cfg.cache = { labels: [], docs: [] }; });
+          
+          document.getElementById('kpiFfa').innerText = '-';
+          document.getElementById('kpiFfaStatus').innerText = 'Kosong';
+          document.getElementById('kpiUsb').innerText = '-';
+          document.getElementById('kpiUsbStatus').innerText = 'Kosong';
+          document.getElementById('kpiOilLosses').innerText = '-';
+          document.getElementById('kpiKernelLosses').innerText = '-';
+          for (let n = 1; n <= 4; n++) document.getElementById('kpiRipple' + n).innerText = '-';
+
+          [chartOilLosses, chartKernelLosses, chartKualitasCpo, chartKualitasKernel].forEach(chart => {
+            chart.data.labels = [];
+            chart.data.datasets.forEach(ds => ds.data = []);
+            chart.update();
+          });
+          return;
+        }
+
+        // Update Top KPI
+        const latest = docs[0];
+        document.getElementById('kpiFfa').innerText = latest.mutuCpoProduksi?.ffa ?? '-';
+        document.getElementById('kpiFfaStatus').innerText = (latest.mutuCpoProduksi?.ffa > 5) ? '⚠️ Max 5%' : '✅ Normal';
+        
+        const usbVal = latest.processAndSludge?.usbLosses ?? latest.sterilizerStation?.usb ?? '-';
+        document.getElementById('kpiUsb').innerText = usbVal;
+        document.getElementById('kpiUsbStatus').innerText = (usbVal !== '-' && parseFloat(usbVal) > 5) ? '⚠️ Tinggi' : '✅ Normal';
+
+        document.getElementById('kpiOilLosses').innerText = latest.totalLosses?.absOilLosses ?? '-';
+        document.getElementById('kpiKernelLosses').innerText = latest.totalLosses?.absKernelLosses ?? '-';
+        for (let n = 1; n <= 4; n++) document.getElementById('kpiRipple' + n).innerText = getRipple(latest, n);
+
+        // Update Tabel Riwayat Transaksi (Seluruh Inputan Menjalar ke Kanan)
+        document.getElementById('totalDataCount').innerText = `${docs.length} Data Ditampilkan`;
+        const html = docs.map(buildTableRow).join('');
+        document.getElementById('tableBody').innerHTML = html;
+
+        // Update Grafik
+        const chronDocs = [...docs].reverse();
+        // Label sumbu-X: tanggal laporan; jika ada >1 data di tanggal sama, tambahkan jam
+        const tglCount = {};
+        chronDocs.forEach(d => { tglCount[d._label] = (tglCount[d._label] || 0) + 1; });
+        const labels = chronDocs.map(d => (tglCount[d._label] > 1 && d._time) ? `${d._label} ${d._time}` : d._label);
+
+        Object.values(FCHARTS).forEach(cfg => {
+          cfg.cache = { labels, docs: chronDocs };
+          try { renderFilterChart(cfg); } catch (err) { console.error('Gagal render grafik', cfg.canvas, err); }
+        });
+
+      }, error => {
+        console.error("Firestore Listen Error:", error);
+      });
+    }
+
+    // Fungsi Capture PNG Presisi Khusus Area Kotak Grafis
+    function downloadPng() {
+      const captureElement = document.getElementById('captureArea');
+      const dropdownMenu = document.getElementById('downloadMenu');
+      
+      dropdownMenu.classList.add('hidden');
+
+      const filterBar = document.getElementById('filterBar');
+      filterBar.style.display = 'none';
+      const chipBars = document.querySelectorAll('.chart-chips');
+      chipBars.forEach(el => { el.style.display = 'none'; });
+
+      html2canvas(captureElement, {
+        scale: 2,
+        backgroundColor: '#f8fafc',
+        useCORS: true,
+        width: captureElement.offsetWidth,
+        height: captureElement.offsetHeight,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll('#captureArea .truncate').forEach(el => {
+            el.style.overflow = 'visible';
+            el.style.textOverflow = 'clip';
+            el.style.maxWidth = 'none';
+            el.style.lineHeight = '1.5';
+            el.style.paddingTop = '1px';
+            el.style.paddingBottom = '1px';
+          });
+        }
+      }).then(canvas => {
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.download = `QC_Lab_Dashboard_Summary_${dateStr}.png`;
+        link.href = image;
+        link.click();
+      }).finally(() => { filterBar.style.display = ''; chipBars.forEach(el => { el.style.display = ''; }); });
+    }
+
+    // Fungsi Export CSV Data Lengkap Menjalar ke Kanan
+    function downloadCsv() {
+      if (!currentRawData || currentRawData.length === 0) {
+        alert("Tidak ada data untuk di-download.");
+        return;
+      }
+
+      const headers = ["Tanggal Laporan", ...COLUMNS.map(c => c.h)];
+      let csv = headers.join(",") + "\n";
+
+      currentRawData.forEach(item => {
+        const r = item._raw || item;
+        const row = [`"${item.createdAtFormatted || '-'}"`, ...COLUMNS.map(c => c.fn(r) ?? '')];
+        csv += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Riwayat_QC_Lab_Lengkap_${dateStr}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      document.getElementById('downloadMenu').classList.add('hidden');
+    }
+
+    // Event Listeners Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      initCharts();
+      buildTableHeader();
+      listenToData();
+
+      // Control Navigasi Scroll Tabel via Tombol Kiri & Kanan
+      const scrollContainer = document.getElementById('tableScrollContainer');
+      document.getElementById('btnScrollLeft').addEventListener('click', () => {
+        scrollContainer.scrollBy({ left: -350, behavior: 'smooth' });
+      });
+      document.getElementById('btnScrollRight').addEventListener('click', () => {
+        scrollContainer.scrollBy({ left: 350, behavior: 'smooth' });
+      });
+
+      // Toggle Dropdown Menu Download
+      const btnDropdown = document.getElementById('btnDownloadDropdown');
+      const downloadMenu = document.getElementById('downloadMenu');
+
+      btnDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        downloadMenu.classList.toggle('hidden');
+      });
+
+      // Tutup dropdown jika klik di luar
+      document.addEventListener('click', () => {
+        if (!downloadMenu.classList.contains('hidden')) {
+          downloadMenu.classList.add('hidden');
+        }
+      });
+
+      // Event Download PNG & CSV
+      document.getElementById('btnDownloadPng').addEventListener('click', downloadPng);
+      document.getElementById('btnDownloadCsv').addEventListener('click', downloadCsv);
+
+      // Tombol filter parameter pada keempat grafik tren
+      Object.values(FCHARTS).forEach(cfg => {
+        try { initFilterChart(cfg); } catch (err) { console.error('Gagal inisialisasi filter', cfg.canvas, err); }
+      });
+
+      // Filter Periode Tanggal: otomatis diterapkan begitu tanggal dipilih (tanpa tombol)
+      const startInput = document.getElementById('startDate');
+      const endInput = document.getElementById('endDate');
+
+      function applyDateFilter() {
+        // Batasi rentang agar "Dari" tidak melebihi "Sampai"
+        endInput.min = startInput.value || '';
+        startInput.max = endInput.value || '';
+        // Jika rentang terbalik, tunggu sampai pengguna memperbaiki
+        if (startInput.value && endInput.value && startInput.value > endInput.value) return;
+        listenToData(startInput.value, endInput.value);
+      }
+
+      startInput.addEventListener('change', applyDateFilter);
+      endInput.addEventListener('change', applyDateFilter);
+      // Cegah reload halaman jika Enter ditekan di dalam form
+      document.getElementById('filterForm').addEventListener('submit', (e) => e.preventDefault());
+
+      // Reset Filter Tanggal
+      document.getElementById('btnResetFilter').addEventListener('click', () => {
+        startInput.value = ''; endInput.value = '';
+        startInput.max = ''; endInput.min = '';
+        listenToData();
+      });
+    });
+  </script>
+</body>
+</html>
